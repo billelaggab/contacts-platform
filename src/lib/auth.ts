@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
-import prisma from "@/lib/prisma";
+import { authConfig } from "./auth.config";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
@@ -11,11 +11,9 @@ const loginSchema = z.object({
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    ...authConfig.providers,
     Credentials({
       name: "Credentials",
       credentials: {
@@ -33,16 +31,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
         if (!ok) return null;
-        return { id: user.id, email: user.email, name: user.name, image: user.image };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role,
+          status: user.status,
+        } as any;
       },
     }),
   ],
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         const existing = await prisma.user.findUnique({ where: { email: user.email! } });
         if (!existing) {
-          await prisma.user.create({
+          const newUser = await prisma.user.create({
             data: {
               id: user.id!,
               email: user.email!,
@@ -52,6 +58,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               status: "PENDING",
             },
           });
+          (user as any).role = newUser.role;
+          (user as any).status = newUser.status;
+        } else {
+          (user as any).role = existing.role;
+          (user as any).status = existing.status;
         }
       }
       return true;
@@ -59,7 +70,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id as string } });
+        token.role = (user as any).role;
+        token.status = (user as any).status;
+      } else {
+        // Refresh token data from DB periodically if needed
+        const dbUser = await prisma.user.findUnique({ where: { id: token.id as string } });
         if (dbUser) {
           token.role = dbUser.role;
           token.status = dbUser.status;
@@ -67,18 +82,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        (session.user as any).role = token.role;
-        (session.user as any).status = token.status;
-      }
-      return session;
-    },
   },
-  pages: {
-    signIn: "/login",
-    verifyRequest: "/pending-approval",
-  },
-  secret: process.env.NEXTAUTH_SECRET,
 });

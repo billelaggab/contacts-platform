@@ -1,29 +1,28 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 const PUBLIC_PATHS = ["/login", "/register", "/pending-approval", "/api/auth"];
 
-export default auth(async function middleware(req) {
+export default auth((req) => {
   const { nextUrl } = req;
+  const isLoggedIn = !!req.auth;
 
   // Allow public paths
   if (PUBLIC_PATHS.some((p) => nextUrl.pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  const session = await auth();
-
-  if (!session?.user) {
+  if (!isLoggedIn) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id as string },
-  });
+  const userStatus = (req.auth?.user as any)?.status;
 
-  if (!user || user.status !== "APPROVED") {
+  // Only allow APPROVED users to access the app
+  if (userStatus !== "APPROVED") {
     return NextResponse.redirect(new URL("/pending-approval", nextUrl));
   }
 
