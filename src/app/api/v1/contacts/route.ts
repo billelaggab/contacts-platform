@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       phoneNumbers: true,
+      accessRequests: true,
       _count: { select: { accessRequests: true } },
     },
     orderBy: { updatedAt: "desc" },
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     if (c.contactType === "VIP") {
       const approved = c.accessRequests.some(
-        (r: any) => r.journalistId === user.id && r.status === "APPROVED"
+        (r) => r.journalistId === user.id && r.status === "APPROVED"
       );
       if (!approved) {
         return {

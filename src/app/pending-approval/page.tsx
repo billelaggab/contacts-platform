@@ -9,7 +9,13 @@ export default function PendingApproval() {
           Your press card is under review. An admin will verify your credentials and activate your
           account. You&apos;ll be notified by email once approved.
         </p>
-        <form action={signIn.bind(null, "google", { redirectTo: "/" })} className="mt-6">
+        <form
+          action={async () => {
+            "use server";
+            await signIn("google", { redirectTo: "/" });
+          }}
+          className="mt-6"
+        >
           <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-white">
             Continue with Google
           </button>

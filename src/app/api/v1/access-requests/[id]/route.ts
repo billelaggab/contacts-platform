@@ -8,7 +8,10 @@ const reviewSchema = z.object({
 });
 
 // PATCH /api/v1/access-requests/[id] — Admin approves/rejects VIP access
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const session = await auth();
   if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
@@ -16,10 +19,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!actor || actor.role !== "SUPER_ADMIN")
     return new NextResponse("Forbidden", { status: 403 });
 
+  const { id } = await params;
   const { status } = reviewSchema.parse(await req.json());
 
   const updated = await prisma.contactAccessRequest.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       status,
       reviewedBy: actor.id,

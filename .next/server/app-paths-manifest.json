@@ -1,0 +1,17 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/api/admin/users/[id]/route": "app/api/admin/users/[id]/route.js",
+  "/api/admin/users/route": "app/api/admin/users/route.js",
+  "/api/v1/access-requests/[id]/route": "app/api/v1/access-requests/[id]/route.js",
+  "/api/v1/contacts/route": "app/api/v1/contacts/route.js",
+  "/api/v1/sync/contacts/route": "app/api/v1/sync/contacts/route.js",
+  "/contacts/[id]/page": "app/contacts/[id]/page.js",
+  "/contacts/page": "app/contacts/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/pending-approval/page": "app/pending-approval/page.js",
+  "/register/page": "app/register/page.js"
+}
