@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  JOURNALIST
+  ORG_ADMIN
+  PR_REP
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ContactType {
+  PUBLIC_PR
+  VIP
+  PRIVATE
+}
+
+enum PhoneLabel {
+  MOBILE
+  WHATSAPP
+  OFFICE
+  EMERGENCY
+}
+
+enum ReportType {
+  DEAD_NUMBER
+  ROLE_CHANGED
+  INACCURATE_DATA
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+}
+
+enum AuditAction {
+  VIEW_PRIVATE_CONTACT
+  APPROVE_USER
+  REVEAL_VIP
+  CREATE_CONTACT
+  UPDATE_CONTACT
+  DELETE_CONTACT
+}
+
+// ─── Models ──────────────────────────────────────────────────────────
+
+model User {
+  id            String        @id @default(uuid())
+  name          String?
+  email         String        @unique
+  passwordHash  String?       // Null for OAuth-only users
+  image         String?
+  role          UserRole      @default(JOURNALIST)
+  status        UserStatus    @default(PENDING)
+  pressCardUrl  String?
+  workspaceId   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  contactsCreated   Contact[]         @relation("CreatedContacts")
+  accessRequests    ContactAccessRequest[] @relation("Requester")
+  notes             JournalistNote[]
+  reports           ContactReport[]
+  auditLogs         AuditLog[]        @relation("Actor")
+  reviewedRequests  ContactAccessRequest[] @relation("Reviewer")
+}
+
+model Contact {
+  id                String        @id @default(uuid())
+  fullName          String
+  currentJobTitle   String?
+  organization      String?
+  email             String?
+  avatarUrl         String?
+  contactType       ContactType   @default(PUBLIC_PR)
+  isPublishedToCommunity Boolean  @default(false)
+  createdById       String
+  specialization    String?       // POLITICS, ECONOMY, SPORTS, TECH, …
+  country           String?
+  city              String?
+  syncVersion       Int           @default(1)
+  deletedAt         DateTime?     // Soft-delete for sync engine
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  creator           User          @relation("CreatedContacts", fields: [createdById], references: [id])
+  phoneNumbers      ContactPhoneNumber[]
+  mediaAssets       MediaAsset[]
+  careerHistory     ContactHistory[]
+  notes             JournalistNote[]
+  accessRequests    ContactAccessRequest[]
+  reports           ContactReport[]
+
+  @@index([deletedAt])
+  @@index([contactType])
+  @@index([updatedAt])
+}
+
+model ContactPhoneNumber {
+  id         String     @id @default(uuid())
+  contactId  String
+  phoneNumber String
+  label      PhoneLabel @default(MOBILE)
+  isPrimary  Boolean    @default(false)
+
+  contact    Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+}
+
+model MediaAsset {
+  id        String   @id @default(uuid())
+  contactId String
+  fileUrl   String
+  caption   String?
+  fileSize  Int?
+  mimeType  String?
+  uploadedAt DateTime @default(now())
+
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+model ContactHistory {
+  id         String   @id @default(uuid())
+  contactId  String
+  roleTitle  String
+  entity     String?   // company / entity
+  startDate  DateTime?
+  endDate    DateTime?
+  isCurrent  Boolean   @default(false)
+
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+}
+
+model JournalistNote {
+  id          String   @id @default(uuid())
+  contactId   String
+  journalistId String
+  noteContent String
+  updatedAt   DateTime @updatedAt
+
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  journalist  User     @relation(fields: [journalistId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, journalistId])
+}
+
+model ContactAccessRequest {
+  id         String     @id @default(uuid())
+  contactId  String
+  journalistId String
+  status     UserStatus @default(PENDING) // PENDING / APPROVED / REJECTED
+  reason     String?
+  reviewedBy String?
+  reviewedAt DateTime?
+
+  contact    Contact    @relation(fields: [contactId], references: [id])
+  journalist User       @relation("Requester", fields: [journalistId], references: [id])
+  reviewer   User?      @relation("Reviewer", fields: [reviewedBy], references: [id])
+
+  @@index([contactId])
+  @@index([journalistId])
+}
+
+model ContactReport {
+  id         String      @id @default(uuid())
+  contactId  String
+  journalistId String
+  reportType ReportType
+  notes      String?
+  status     ReportStatus @default(PENDING)
+
+  contact    Contact     @relation(fields: [contactId], references: [id])
+  journalist User        @relation(fields: [journalistId], references: [id])
+}
+
+model AuditLog {
+  id        String     @id @default(uuid())
+  actorId   String
+  action    AuditAction
+  targetId  String?    // contactId / userId depending on action
+  timestamp DateTime   @default(now())
+
+  actor     User       @relation("Actor", fields: [actorId], references: [id])
+}
