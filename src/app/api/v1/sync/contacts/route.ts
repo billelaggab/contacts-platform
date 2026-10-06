@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     updated,
     created,
-    deleted: deleted.map((d) => d.id),
+    deleted: deleted.map((d: any) => d.id),
     serverTime: new Date().toISOString(),
   });
 }

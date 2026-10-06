@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const parsed = contactQuerySchema.parse(Object.fromEntries(searchParams));
 
-  const where: any = { deletedAt: null };
+  const where: Record<string, any> = { deletedAt: null };
   if (parsed.q) {
     where.OR = [
       { fullName: { contains: parsed.q, mode: "insensitive" as const } },
@@ -57,12 +57,12 @@ export async function GET(req: NextRequest) {
   });
 
   // ─── Apply VIP masking ────────────────────────────────────
-  const masked = contacts.map((c) => {
+  const masked = contacts.map((c: any) => {
     if (c.contactType === "PUBLIC_PR") return c;
 
     if (c.contactType === "VIP") {
-      const approved = c.accessRequests.some(
-        (r) => r.journalistId === user.id && r.status === "APPROVED"
+      const approved = (c.accessRequests || []).some(
+        (r: any) => r.journalistId === user.id && r.status === "APPROVED"
       );
       if (!approved) {
         return {
