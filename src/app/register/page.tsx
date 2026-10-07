@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
@@ -16,7 +15,6 @@ export default function RegisterPage() {
       throw new Error("Email and password are required");
     }
 
-    // Check if user already exists
     const existing = await prisma.user.findUnique({
       where: { email },
     });
@@ -25,10 +23,8 @@ export default function RegisterPage() {
       throw new Error("User with this email already exists");
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user in database with PENDING status
     await prisma.user.create({
       data: {
         name,
@@ -36,16 +32,12 @@ export default function RegisterPage() {
         passwordHash,
         role: "JOURNALIST",
         status: "PENDING",
-        pressCardUrl: "/uploads/sample-press-card.jpg", // placeholder for uploaded file
+        pressCardUrl: "/uploads/sample-press-card.jpg",
       },
     });
 
-    // Sign in the user after successful registration
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/pending-approval",
-    });
+    // Redirect to pending approval page
+    redirect("/pending-approval");
   }
 
   return (
