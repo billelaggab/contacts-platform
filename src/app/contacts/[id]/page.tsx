@@ -29,20 +29,29 @@ export default function ContactDetailPage() {
   const router = useRouter();
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/v1/contacts`)
-      .then((r) => (r.status === 401 ? router.replace("/login") : r.json()))
+    fetch("/api/v1/contacts", { credentials: "include" })
+      .then((r) => {
+        if (r.status === 401) {
+          router.replace("/login");
+          return null;
+        }
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         const found = data.find((c: Contact) => c.id === params.id);
         if (!found) router.replace("/contacts");
-        setContact(found);
+        setContact(found || null);
       })
-      .catch(() => router.replace("/contacts"))
+      .catch(() => setError("فشل التحميل."))
       .finally(() => setLoading(false));
   }, [params.id, router]);
 
-  if (loading) return <p className="p-8">Loading…</p>;
+  if (loading) return <p className="p-8 text-center text-gray-500">جاري التحميل…</p>;
+  if (error) return <p className="p-8 text-center text-red-500">{error}</p>;
   if (!contact) return null;
 
   const isVipMasked = contact.contactType === "VIP" && contact._canRequest;
@@ -66,7 +75,8 @@ export default function ContactDetailPage() {
         <div>
           <h1 className="text-2xl font-bold">{contact.fullName}</h1>
           <p className="text-gray-600">
-            {contact.currentJobTitle}{contact.currentJobTitle && contact.organization ? " · " : ""}
+            {contact.currentJobTitle}
+            {contact.currentJobTitle && contact.organization ? " · " : ""}
             {contact.organization}
           </p>
           <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600 mt-1">
@@ -86,11 +96,7 @@ export default function ContactDetailPage() {
           </div>
         ) : (
           <ul className="space-y-1">
-            {contact.email && (
-              <li className="text-sm">
-                ✉️ {contact.email}
-              </li>
-            )}
+            {contact.email && <li className="text-sm">✉️ {contact.email}</li>}
             {(contact.phoneNumbers ?? []).map((p) => (
               <li key={p.id} className="text-sm">
                 📞 {p.phoneNumber} ({p.label})
@@ -103,7 +109,9 @@ export default function ContactDetailPage() {
       <section className="mt-6">
         <h2 className="text-lg font-semibold mb-2">Location</h2>
         <p className="text-sm text-gray-600">
-          {[contact.specialization, contact.country, contact.city].filter(Boolean).join(" · ") || "N/A"}
+          {[contact.specialization, contact.country, contact.city]
+            .filter(Boolean)
+            .join(" · ") || "N/A"}
         </p>
       </section>
     </main>

@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+interface Phone {
+  id: string;
+  phoneNumber: string;
+  label: string;
+  isPrimary: boolean;
+}
+
 interface Contact {
   id: string;
   fullName: string;
@@ -15,6 +22,7 @@ interface Contact {
   country?: string | null;
   city?: string | null;
   _canRequest?: boolean;
+  phoneNumbers?: Phone[];
 }
 
 export default function ContactsPage() {
@@ -22,15 +30,23 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/v1/contacts")
+    fetch("/api/v1/contacts", { credentials: "include" })
       .then((r) => {
-        if (r.status === 401) router.replace("/login");
+        if (r.status === 401) {
+          router.replace("/login");
+          return null;
+        }
         return r.json();
       })
-      .then(setContacts)
-      .catch(() => router.replace("/login"))
+      .then((data) => {
+        if (data) setContacts(data);
+      })
+      .catch(() => {
+        setError("فشل تحميل جهات الاتصال. حاول مرة أخرى.");
+      })
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -40,21 +56,22 @@ export default function ContactsPage() {
       (c.organization ?? "").toLowerCase().includes(filter.toLowerCase())
   );
 
-  if (loading) return <p className="p-8">Loading contacts…</p>;
+  if (loading) return <p className="p-8 text-center text-gray-500">جاري التحميل…</p>;
+  if (error) return <p className="p-8 text-center text-red-500">{error}</p>;
 
   return (
     <main className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Contacts</h1>
+        <h1 className="text-2xl font-bold">جهات الاتصال</h1>
         <Link href="/contacts/new" className="rounded bg-blue-600 px-4 py-2 text-white">
-          + New Contact
+          + جهة اتصال جديدة
         </Link>
       </div>
 
       <input
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="Search by name or organization…"
+        placeholder="بحث بالاسم أو الجهة…"
         className="w-full rounded border px-3 py-2 mb-4"
       />
 
@@ -71,7 +88,8 @@ export default function ContactsPage() {
                 {c.fullName}
               </Link>
               <p className="text-sm text-gray-500">
-                {c.currentJobTitle}{c.currentJobTitle && c.organization ? " · " : ""}{c.organization}
+                {c.currentJobTitle}{c.currentJobTitle && c.organization ? " · " : ""}
+                {c.organization}
               </p>
               <span className="inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                 {c.contactType}
@@ -81,7 +99,7 @@ export default function ContactsPage() {
         ))}
       </ul>
 
-      {filtered.length === 0 && <p className="text-center text-gray-400 py-8">No contacts found.</p>}
+      {filtered.length === 0 && <p className="text-center text-gray-400 py-8">لا توجد جهات اتصال.</p>}
     </main>
   );
 }
